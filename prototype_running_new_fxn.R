@@ -32,36 +32,51 @@ setwd(selectDirectory())
 
 
 
+# CLINICAL TRAITS
+#phenotypes <- read.csv("W:\\General\\Projects2\\Clinical_traits_DO1200\\Final in vivo DO data for analysis rankz.csv")
+#rownames(phenotypes)<-phenotypes$mouse
 
-
-# prepare phenotypes with combat adjusted raw values:
-phenotypes <- read.csv("W:\\General\\mapping_files_for_mark\\Final in vivo DO data for analysis (raw and computed) v2.csv")
-rownames(phenotypes)<-phenotypes$Mouse
-
+# set QTL_list
+#QTL_list <- read.csv("C:/Users/mkeller3/Desktop/Clinical_traits_QTL_additive.csv")
 
 # prepare covariate matrix:
-covariate_statement = "~Sex*Diet+Gen_Lit"
+#covariate_statement = "~Sex*Diet+Gen_Lit"
+#covar_matrix = model.matrix(as.formula(covariate_statement), data=phenotypes)[,-1]
+
+
+
+
+# LIVER LIPIDS
+phenotypes <- read.csv("W:\\General\\Projects2\\Holland\\Liver_lipids_combat_badmiceremoved_allratios_rankz.csv")
+rownames(phenotypes)<-phenotypes$mouse
+
+# set QTL_list
+QTL_list <- read.csv("C:/Users/mkeller3/Desktop/Liver_lipid_traits_QTL_additive.csv")
+
+# prepare covariate matrix:
+covariate_statement = "~Sex*Diet+GenLit+Batch"
 covar_matrix = model.matrix(as.formula(covariate_statement), data=phenotypes)[,-1]
 
 
-# set QTL_list
-QTL_list <- read.csv("W:\\General\\Projects2\\Clinical_traits_DO1200\\Clinical_traits_QTL_additive.csv")
+
+
+
+
+
+# mediator choice
+mediator_object_choice <- "Isoforms"
+#mediator_object_choice <- "Genes"
+
+
+
+
+
 
 
 # set the phenotype list
 pheno_list <- data.frame(matrix(nrow = nrow(QTL_list), ncol=1))
 colnames(pheno_list) <- "Phenotype"
 pheno_list$Phenotype <- QTL_list$lodcolumn
-
-
-# mediator choice
-#mediator_object_choice <- "Isoforms"
-mediator_object_choice <- "Genes"
-
-
-
-
-
 
 # mediator compartment
 mediator_compartment <- "Liver"
@@ -108,7 +123,7 @@ lod_drop_thr <- 0.4
 DO_set <- "second"
 
 # set rankz option- this determines whether to re-rankz your data (recommended)
-rankz_set = TRUE
+rankz_set = FALSE
 
 # set counter
 cntr <- 0
@@ -137,7 +152,7 @@ repeat{
     cntr2 <- cntr2+1
     
   # find the next peak
-  QTL_list3 <- subset(QTL_list2, marker.id == QTL_list2$marker.id[cntr2])
+  QTL_list3 <- subset(QTL_list2, marker == QTL_list2$marker[cntr2])
   
   # run the function:
   completed_mediation <- Emfinger_mediation(
@@ -242,7 +257,7 @@ repeat{
   }
   
   out_table$trait <- pheno_list_subset$Phenotype
-  out_table$marker.id <- QTL_list3$marker.id
+  out_table$marker <- QTL_list3$marker
   out_table$covars <- covariate_statement
   
   flname <- paste0(mediator_compartment,"_",mediator_object_choice,"_",pheno_list_subset$Phenotype[1],"_peak",cntr2,".csv")
