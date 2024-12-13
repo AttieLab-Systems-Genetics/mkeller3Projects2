@@ -47,16 +47,29 @@ setwd(selectDirectory())
 
 
 # LIVER LIPIDS
-phenotypes <- read.csv("W:\\General\\Projects2\\Holland\\Liver_lipids_combat_badmiceremoved_allratios_rankz.csv")
+#phenotypes <- read.csv("W:\\General\\Projects2\\Holland\\Liver_lipids_combat_badmiceremoved_allratios_rankz.csv")
+#rownames(phenotypes)<-phenotypes$mouse
+
+# set QTL_list
+#QTL_list <- read.csv("C:/Users/mkeller3/Desktop/Liver_lipid_traits_QTL_additive.csv")
+
+# prepare covariate matrix:
+#covariate_statement = "~Sex*Diet+GenLit+Batch"
+#covar_matrix = model.matrix(as.formula(covariate_statement), data=phenotypes)[,-1]
+
+
+
+
+# PLASMA METABOLITES 13C-LABEL
+phenotypes <- read.csv("W:\\General\\Projects2\\Kibbey\\D and 13C abeled molecules in plasma from 1200 DO.csv")
 rownames(phenotypes)<-phenotypes$mouse
 
 # set QTL_list
-QTL_list <- read.csv("C:/Users/mkeller3/Desktop/Liver_lipid_traits_QTL_additive.csv")
+QTL_list <- read.csv("C:/Users/mkeller3/Desktop/13C_Labeled_metabolites_plasma_QTL_additive.csv")
 
 # prepare covariate matrix:
-covariate_statement = "~Sex*Diet+GenLit+Batch"
+covariate_statement = "~Sex*Diet+GenLit+C_batch"
 covar_matrix = model.matrix(as.formula(covariate_statement), data=phenotypes)[,-1]
-
 
 
 
