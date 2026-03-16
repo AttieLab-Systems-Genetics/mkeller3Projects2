@@ -657,21 +657,112 @@ ggsave(
 )
 
 
+####---------------------------------------------------------
+# Harmonize plot layouts for mafa peaks, mafa peaks with SNPs and 
+# mafa peaks with SNPs proximal to directional DEGs via triangles
+####---------------------------------------------------------
 
 
 
 
+# 1. Determine the absolute max Peak Score across all datasets to lock the Y-axis
+global_max_y <- max(mafa_all_snps$`Peak Score`, na.rm = TRUE) * 1.1 
+
+# 2. Create a standardized theme object
+shared_manhattan_theme <- theme_minimal() + 
+  theme(
+    panel.grid = element_blank(),
+    axis.text.x = element_text(size = 10, face = "bold"),
+    axis.line.y = element_line(color = "black"),
+    legend.position = "bottom",
+    legend.box = "horizontal",
+    legend.key = element_blank(),
+    plot.title = ggtext::element_markdown(lineheight = 1.1, margin = margin(t = 5, b = 20)),
+    plot.margin = margin(t = 5, r = 5, b = 5, l = 5),
+    # Force the plot area to be exactly the same regardless of legend complexity
+    aspect.ratio = 6.5 / 13 
+  )
+
+# 3. Create a shared Y-scale to prevent "wobble"
+shared_y_scale <- scale_y_continuous(
+  limits = c(0, global_max_y), 
+  labels = scales::comma, 
+  expand = c(0, 0)
+)
+
+
+p_all <- ggplot() +
+  geom_rect(data = CHR_INFO, aes(xmin = Offset, xmax = EndOffset, ymin = -Inf, ymax = Inf, fill = Shade), alpha = 1, show.legend = FALSE) +
+  scale_fill_identity() +
+  geom_point(data = mafa_all_snps, aes(x = GlobalPos, y = `Peak Score`, size = SNP_Count), 
+             shape = 21, fill = "forestgreen", color = "black", stroke = 0.2, alpha = 0.6) +
+  scale_x_continuous(limits = c(0, TOTAL_GENOME_LENGTH), breaks = CHR_INFO$MidpointGlobal, labels = CHR_INFO$AxisLabel, expand = c(0, 0)) +
+  shared_y_scale + 
+  scale_size_continuous(range = c(0.8, 8), name = "SNPs per Peak", limits = c(1, max(mafa_all_snps$SNP_Count))) +
+  labs(title = "SNP-Impacted MafA Binding Sites (All)", x = "Chromosome", y = "MafA Peak Score") +
+  shared_manhattan_theme
+
+ggsave(file.path(BASE_DIR, "1_All_SNPs.png"), 
+       plot = p_all, 
+       width = 13, 
+       height = 6.5, 
+       dpi = 600)
+
+
+p_prox <- ggplot() +
+  geom_rect(data = CHR_INFO, aes(xmin = Offset, xmax = EndOffset, ymin = -Inf, ymax = Inf, fill = Shade), alpha = 1, show.legend = FALSE) +
+  scale_fill_identity() +
+  geom_point(data = mafa_prox_snps, aes(x = GlobalPos, y = `Peak Score`, size = SNP_Count), 
+             shape = 21, fill = "forestgreen", color = "black", stroke = 0.2, alpha = 0.6) +
+  scale_x_continuous(limits = c(0, TOTAL_GENOME_LENGTH), breaks = CHR_INFO$MidpointGlobal, labels = CHR_INFO$AxisLabel, expand = c(0, 0)) +
+  shared_y_scale +
+  scale_size_continuous(range = c(0.8, 8), name = "SNPs per Peak", limits = c(1, max(mafa_all_snps$SNP_Count))) +
+  labs(title = "SNP-Impacted MafA Binding Sites Proximal to DEGs", x = "Chromosome", y = "MafA Peak Score") +
+  shared_manhattan_theme
+
+ggsave(file.path(BASE_DIR, "2_Proximal_SNPs.png"), 
+       plot = p_prox, 
+       width = 13, 
+       height = 6.5, 
+       dpi = 600)
+
+
+p_directional_final <- ggplot() +
+  geom_rect(data = CHR_INFO, aes(xmin = Offset, xmax = EndOffset, ymin = -Inf, ymax = Inf, fill = Shade), alpha = 1, show.legend = FALSE) +
+  scale_fill_identity() +
+  new_scale_fill() +
+  geom_point(data = mafa_prox_snps, aes(x = GlobalPos, y = `Peak Score`, fill = Strain, shape = Direction, size = SNP_Count), 
+             color = "black", stroke = 0.25, alpha = 0.6) +
+  scale_fill_manual(values = strain_colors, name = "Strain") + 
+  scale_shape_manual(values = impact_shapes, name = "DEG Direction") +
+  scale_x_continuous(limits = c(0, TOTAL_GENOME_LENGTH), breaks = CHR_INFO$MidpointGlobal, labels = CHR_INFO$AxisLabel, expand = c(0, 0)) +
+  shared_y_scale +
+  scale_size_continuous(range = c(0.8, 8), name = "SNPs per Peak", limits = c(1, max(mafa_all_snps$SNP_Count))) +
+  labs(title = "Functional Impact of MafA Sites for <span style='color:#0000CC;'>C57BL/6J</span> and <span style='color:#CC0000;'>SJL/Mixed</span>", 
+       x = "Chromosome", y = "MafA Peak Score") +
+  shared_manhattan_theme +
+  guides(shape = guide_legend(override.aes = list(size = 4, fill = "grey50")),
+         fill = guide_legend(override.aes = list(shape = 21)),
+         size = guide_legend(override.aes = list(shape = 21, fill = "grey80")))
+
+ggsave(file.path(BASE_DIR, "3_Functional_Impact.png"), 
+       plot = p_directional_final, 
+       width = 13, 
+       height = 6.5, 
+       dpi = 600)
 
 
 
+# 1. Total mafa binding sites with SNPs
+total_snp_sites <- nrow(mafa[SNP_Count > 0])
 
+# 2. Subset of those with at least one DEG within 200kb
+# This matches your mafa_prox_snps logic
+proximal_snp_sites <- nrow(mafa_prox_snps)
 
-
-
-
-
-
-
+# Print results
+cat("Total MafA sites with SNPs:", total_snp_sites, "\n")
+cat("SNP sites near at least one DEG (200kb):", proximal_snp_sites, "\n")
 
 
 
