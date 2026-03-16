@@ -207,6 +207,9 @@ create_zoomed_view("Chr18")
 create_zoomed_view("Chr19")
 
 
+###----------------------------------------------------
+# Next vignette occurs here
+###----------------------------------------------------
 
 
 ###----------------------------------------------------
@@ -349,6 +352,10 @@ ggsave(
 
 
 
+###----------------------------------------------------
+# Vignette: SNP-Containing MafA Binding Sites
+###----------------------------------------------------
+
 # 1. Convert Data to GRanges for High-Speed Overlap
 # We use mm39 coordinates for the intersection
 mafa_gr <- GRanges(
@@ -416,7 +423,7 @@ p_snp_inset <- ggplot(mafa_with_snps, aes(x = Dist_TSS_Num)) +
   geom_hline(yintercept = 0, color = "black", linewidth = 0.5) +
   coord_cartesian(xlim = c(-1000, 1000)) +
   scale_x_continuous(labels = function(x) paste0(x/1000, " kb")) +
-  labs(title = NULL, x = "Distance to TSS", y = "Frequency") +
+  labs(title = NULL, x = NULL, y = NULL) +
   theme_minimal() +
   theme(
     plot.background = element_rect(fill = "white", color = "white", linewidth = 0.8),
@@ -439,250 +446,6 @@ print(final_snp_vignette)
 ggsave(
   filename = file.path(BASE_DIR, "Vignette_MafA_SNP_TSS_Intersection.png"),
   plot = final_snp_vignette,
-  width = 12, 
-  height = 6, 
-  dpi = 600, 
-  bg = "white"
+  width = 10, height = 7, dpi = 300, bg = "white"
 )
-
-
-
-
-###----------------------------------------------------
-# Vignette: SNP-Containing MafA Binding Sites
-###----------------------------------------------------
-
-# Define the global limit once for all plots
-TOTAL_GENOME_LENGTH <- max(CHR_INFO$EndOffset)
-
-# 2. Re-filter for Proximal Sites (1 or more DEGs within 200kb)
-PROXIMAL_WINDOW <- 200000
-
-# Create GRanges
-mafa_gr <- GRanges(seqnames = mafa$Chr, 
-                   ranges = IRanges(start = mafa$mm39_start, end = mafa$mm39_end))
-deg_gr  <- GRanges(seqnames = degs$Chr, 
-                   ranges = IRanges(start = degs$LocalPos, width = 1))
-
-# Find indices of MafA sites near at least one DEG
-prox_overlaps    <- findOverlaps(mafa_gr, deg_gr, maxgap = PROXIMAL_WINDOW)
-proximal_indices <- unique(queryHits(prox_overlaps))
-
-# Create the two datasets
-mafa_all_snps <- mafa[SNP_Count > 0]
-mafa_prox_snps <- mafa[proximal_indices][SNP_Count > 0]
-
-# Ensure GlobalPos is present in both (using the Offset from CHR_INFO)
-if(!"Offset" %in% names(mafa_all_snps)) {
-  mafa_all_snps <- merge(mafa_all_snps, CHR_INFO[, .(Chr, Offset)], by = "Chr")
-  mafa_all_snps[, GlobalPos := mm39_start + Offset]
-}
-if(!"Offset" %in% names(mafa_prox_snps)) {
-  mafa_prox_snps <- merge(mafa_prox_snps, CHR_INFO[, .(Chr, Offset)], by = "Chr")
-  mafa_prox_snps[, GlobalPos := mm39_start + Offset]
-}
-
-##--------------------------------------------------------------------
-# All mafa peaks
-##--------------------------------------------------------------------
-
-p_all <- ggplot() +
-  # Background stripes
-  geom_rect(data = CHR_INFO, aes(xmin = Offset, xmax = EndOffset, ymin = -Inf, ymax = Inf, fill = Shade), 
-            alpha = 1, show.legend = FALSE) +
-  scale_fill_identity() +
-  
-  # Data Points
-  geom_point(data = mafa_all_snps, 
-             aes(x = GlobalPos, y = `Peak Score`, size = SNP_Count), 
-             shape = 21, fill = "forestgreen", color = "black", stroke = 0.2, alpha = 0.6) +        
-  
-  geom_hline(yintercept = 0, color = "black", linewidth = 0.5) +
-  
-  # FIXED X-AXIS
-  scale_x_continuous(
-    limits = c(0, TOTAL_GENOME_LENGTH),
-    breaks = CHR_INFO$MidpointGlobal, 
-    labels = CHR_INFO$AxisLabel,
-    expand = c(0, 0)
-  ) +
-  scale_y_continuous(labels = scales::comma, expand = expansion(mult = c(0, 0.1))) +
-  scale_size_continuous(range = c(0.8, 8), name = "SNPs per Peak") +
-  
-  labs(title = "SNP-Impacted MafA Binding Sites (All)", x = "Chromosome", y = "MafA Peak Score") +
-  theme_minimal() + 
-  theme(panel.grid = element_blank(), axis.text.x = element_text(size = 10, face = "bold"),
-        axis.line.y = element_line(color = "black"), legend.position = "bottom")
-
-print(p_all)
-
-ggsave(file.path(BASE_DIR, "Manhattan_MafA_SNP_ALL_Fixed.png"), 
-       plot = p_all, width = 13, height = 6.5, dpi = 600, bg = "white")
-
-##--------------------------------------------------------------------
-# Mafa peaks proximal to DEGs
-##--------------------------------------------------------------------
-
-
-p_prox <- ggplot() +
-  # Identical background stripes
-  geom_rect(data = CHR_INFO, aes(xmin = Offset, xmax = EndOffset, ymin = -Inf, ymax = Inf, fill = Shade), 
-            alpha = 1, show.legend = FALSE) +
-  scale_fill_identity() +
-  
-  # Filtered Data Points
-  geom_point(data = mafa_prox_snps, 
-             aes(x = GlobalPos, y = `Peak Score`, size = SNP_Count), 
-             shape = 21, fill = "forestgreen", color = "black", stroke = 0.2, alpha = 0.6) +        
-  
-  geom_hline(yintercept = 0, color = "black", linewidth = 0.5) +
-  
-  # IDENTICAL FIXED X-AXIS
-  scale_x_continuous(
-    limits = c(0, TOTAL_GENOME_LENGTH),
-    breaks = CHR_INFO$MidpointGlobal, 
-    labels = CHR_INFO$AxisLabel,
-    expand = c(0, 0)
-  ) +
-  scale_y_continuous(labels = scales::comma, expand = expansion(mult = c(0, 0.1))) +
-  scale_size_continuous(range = c(0.8, 8), name = "SNPs per Peak") +
-  
-  labs(title = "SNP-Impacted MafA Binding Sites Proximal to DEGs (+/- 200kb)", 
-       x = "Chromosome", y = "MafA Peak Score") +
-  theme_minimal() + 
-  theme(panel.grid = element_blank(), axis.text.x = element_text(size = 10, face = "bold"),
-        axis.line.y = element_line(color = "black"), legend.position = "bottom")
-
-print(p_prox)
-
-ggsave(file.path(BASE_DIR, "Manhattan_MafA_SNP_PROXIMAL_Fixed.png"), 
-       plot = p_prox, width = 13, height = 6.5, dpi = 600, bg = "white")
-
-
-
-
-
-###----------------------------------------------------
-# Vignette: Functional Manhattan (Pixel-Perfect Alignment)
-###----------------------------------------------------
-
-library(ggtext)
-library(ggnewscale)
-
-# 1. Data Mapping
-nearest_deg_idx <- nearest(mafa_prox_gr, deg_gr)
-mafa_prox_snps[, Strain := degs$Strain[nearest_deg_idx]]
-mafa_prox_snps[, FC := degs$FC[nearest_deg_idx]]
-mafa_prox_snps[, Direction := ifelse(FC > 0, "UP", "DOWN")]
-
-# 2. Setup Shared Aesthetics
-impact_shapes <- c("UP" = 24, "DOWN" = 25) 
-strain_colors <- c("Mixed" = "#CC0000", "C57BL/6J" = "#0000CC")
-
-# 3. Build the Plot
-p_directional_final <- ggplot() +
-  # INFRASTRUCTURE
-  geom_rect(aes(xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf), fill = "white") +
-  geom_rect(data = CHR_INFO, 
-            aes(xmin = Offset, xmax = EndOffset, ymin = -Inf, ymax = Inf, fill = Shade), 
-            alpha = 1, show.legend = FALSE) +
-  scale_fill_identity() + 
-  
-  # DATA (Directional Triangles)
-  new_scale_fill() + 
-  geom_point(data = mafa_prox_snps, 
-             aes(x = GlobalPos, y = `Peak Score`, 
-                 fill = Strain, 
-                 shape = Direction, 
-                 size = SNP_Count), 
-             color = "black", 
-             stroke = 0.25, 
-             alpha = 0.6) +       
-  
-  geom_hline(yintercept = 0, color = "black", linewidth = 0.5) +
-  
-  # SCALES
-  scale_fill_manual(values = strain_colors, guide = "none") + 
-  scale_shape_manual(values = impact_shapes, name = "DEG Direction") +
-  scale_size_continuous(range = c(0.8, 8), name = "SNPs per Peak") +
-  
-  # AXES
-  scale_x_continuous(limits = c(0, TOTAL_GENOME_LENGTH),
-                     breaks = CHR_INFO$MidpointGlobal, 
-                     labels = CHR_INFO$AxisLabel,
-                     expand = c(0, 0)) +
-  scale_y_continuous(labels = scales::comma, expand = expansion(mult = c(0, 0.1))) +
-  
-  # TITLES (HTML color-coded)
-  labs(
-    title = paste0("Functional Impact of MafA Sites for ",
-                   "<span style='color:#0000CC;'>C57BL/6J</span> and ",
-                   "<span style='color:#CC0000;'>SJL/Mixed</span> Strains"),
-    x = "Chromosome", 
-    y = "MafA Peak Score"
-  ) +
-  
-  # THEME (Force alignment by zeroing margins)
-  theme_minimal() + 
-  theme(
-    panel.grid = element_blank(), 
-    panel.background = element_blank(),
-    plot.background = element_blank(),
-    axis.text.x = element_text(size = 10, face = "bold"),
-    axis.line.y = element_line(color = "black"), 
-    axis.ticks.y = element_blank(),
-    legend.position = "bottom",
-    legend.key = element_blank(),
-    legend.box = "horizontal",
-    
-    # ALIGNMENT FIX: Explicitly zero out subtitle and set title margin
-    plot.title = element_markdown(lineheight = 1.1, margin = margin(t = 5, b = 5)),
-    plot.subtitle = element_blank(), # Removes the subtitle object entirely
-    plot.margin = margin(t = 10, r = 10, b = 10, l = 10) # Standardizes outer spacing
-  ) +
-  
-  # LEGEND GUIDES
-  guides(
-    shape = guide_legend(override.aes = list(size = 4, fill = "grey50")),
-    size = guide_legend(override.aes = list(shape = 21, fill = "grey80"))
-  )
-
-print(p_directional_final)
-
-# 4. Save
-ggsave(
-  filename = file.path(BASE_DIR, "Manhattan_MafA_Directional_Perfect_Align.png"), 
-  plot = p_directional_final,
-  width = 13, height = 6.5, dpi = 600, bg = "white"
-)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
