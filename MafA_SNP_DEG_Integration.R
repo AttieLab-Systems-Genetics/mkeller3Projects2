@@ -207,9 +207,6 @@ create_zoomed_view("Chr18")
 create_zoomed_view("Chr19")
 
 
-###----------------------------------------------------
-# Next vignette occurs here
-###----------------------------------------------------
 
 
 ###----------------------------------------------------
@@ -352,10 +349,6 @@ ggsave(
 
 
 
-###----------------------------------------------------
-# Vignette: SNP-Containing MafA Binding Sites
-###----------------------------------------------------
-
 # 1. Convert Data to GRanges for High-Speed Overlap
 # We use mm39 coordinates for the intersection
 mafa_gr <- GRanges(
@@ -402,7 +395,7 @@ p_snp_tss <- ggplot(mafa_with_snps, aes(x = Dist_TSS_Num)) +
   geom_hline(yintercept = 0, color = "black", linewidth = 0.6) +
   coord_cartesian(xlim = c(-1000000, 1000000)) +
   scale_x_continuous(labels = function(x) paste0(x/1e6, " Mb")) +
-    labs(
+  labs(
     title = "TSS Proximity of SNP-Containing MafA Sites",
     subtitle = paste("Analysis of", nrow(mafa_with_snps), "filtered sites | +/- 1 Mbp"),
     x = "Distance to TSS",
@@ -454,338 +447,12 @@ ggsave(
 
 
 
-###----------------------------------------------------
-# Vignette: Manhattan Plot of SNP-Impacted MafA Peaks
-###----------------------------------------------------
-
-# 1. Coordinate Math for the Manhattan X-Axis
-# We calculate the cumulative starting position for each chromosome
-chr_offsets <- copy(CHR_INFO)
-chr_offsets[, StartPos := c(0, cumsum(as.numeric(Length))[-.N])]
-chr_offsets[, MidPos := StartPos + Length/2] # For centering labels
-
-# 2. Integration & Score Calculation
-# We only use the peaks identified in the previous step (SNP_Count > 0)
-mafa_manhattan <- mafa[SNP_Count > 0]
-mafa_manhattan <- merge(mafa_manhattan, chr_offsets[, .(Chr, StartPos)], by = "Chr")
-
-# Calculate Global X position
-mafa_manhattan[, GlobalPos := mm39_start + StartPos]
-
-# Calculate Weighted Score: Peak Score * SNP Count
-# Suggestion: If the scale is too compressed by outliers, 
-# you can use: log10(`Peak Score` * SNP_Count)
-mafa_manhattan[, Weighted_Score := `Peak Score` * SNP_Count]
-
-# 3. Create Alternating Background Data
-# This creates the white/grey bands for the chromosomes
-bg_rects <- chr_offsets[seq(1, .N, 2), .(xmin = StartPos, xmax = StartPos + Length)]
-
-# 4. Generate Manhattan Plot
-p_mafa_manhattan <- ggplot() +
-  # Alternating background bands (White to Light Grey)
-  geom_rect(data = bg_rects, aes(xmin = xmin, xmax = xmax, ymin = -Inf, ymax = Inf), 
-            fill = "grey96", alpha = 1) +
-  # Plotting the SNP-Impacted Peaks
-  geom_point(data = mafa_manhattan, 
-             aes(x = GlobalPos, y = Weighted_Score), 
-             color = "forestgreen", alpha = 0.6, size = 1.2) +
-  # Horizontal/Vertical Axis Lines
-  geom_hline(yintercept = 0, color = "black", linewidth = 0.5) +
-  # Formatting X-Axis
-  scale_x_continuous(
-    breaks = chr_offsets$MidPos, 
-    labels = chr_offsets$AxisLabel,
-    expand = c(0, 0)
-  ) +
-  # Formatting Y-Axis with commas for large numbers
-  scale_y_continuous(
-    labels = scales::comma,
-    expand = expansion(mult = c(0, 0.1))
-  ) +
-  labs(
-    title = "Genomic Distribution of SNP-Impacted MafA Binding Sites",
-    subtitle = "Y-axis: Regulatory Impact Score (Peak Score × SNP Count)",
-    x = "Chromosome",
-    y = "Impact Score"
-  ) +
-  theme_minimal() +
-  theme(
-    panel.grid.major.x = element_blank(),
-    panel.grid.minor.x = element_blank(),
-    panel.grid.minor.y = element_blank(),
-    axis.text.x = element_text(size = 10, face = "bold"),
-    axis.line.y = element_line(color = "black"),
-    axis.ticks.y = element_line(color = "black")
-  )
-
-# 5. Output and Save
-print(p_mafa_manhattan)
-
-ggsave(
-  filename = file.path(BASE_DIR, "Manhattan_MafA_SNP_Impact.png"),
-  plot = p_mafa_manhattan,
-  width = 16, height = 7, dpi = 300, bg = "white"
-)
-
 
 ###----------------------------------------------------
-# Vignette: Manhattan Plot (Refined Bubble Definition)
+# Vignette: SNP-Containing MafA Binding Sites
 ###----------------------------------------------------
 
-# 1. Coordinate Math for the Manhattan X-Axis
-chr_offsets <- copy(CHR_INFO)
-chr_offsets[, StartPos := c(0, cumsum(as.numeric(Length))[-.N])]
-chr_offsets[, MidPos := StartPos + Length/2]
-
-# 2. Integration & Global Position Calculation
-mafa_manhattan <- mafa[SNP_Count > 0]
-mafa_manhattan <- merge(mafa_manhattan, chr_offsets[, .(Chr, StartPos)], by = "Chr")
-mafa_manhattan[, GlobalPos := mm39_start + StartPos]
-
-# 3. Create Alternating Background Data (Chr1=White, Chr2=Grey...)
-bg_rects <- chr_offsets[seq(2, .N, 2), .(xmin = StartPos, xmax = StartPos + Length)]
-
-# 4. Generate the Manhattan Plot
-p_impact_final <- ggplot() +
-  # Alternating background bands
-  geom_rect(data = bg_rects, aes(xmin = xmin, xmax = xmax, ymin = -Inf, ymax = Inf), 
-            fill = "grey94", alpha = 1) +
-  
-  # Points: Shape 21 allows for separate stroke (black) and fill (forestgreen)
-  geom_point(data = mafa_manhattan, 
-             aes(x = GlobalPos, y = `Peak Score`, size = SNP_Count), 
-             shape = 21,           # Circle with outline
-             fill = "forestgreen", # Interior color
-             color = "black",      # Outline color
-             stroke = 0.2,         # Very thin outline
-             alpha = 0.6) +        
-  
-  # Axis Lines
-  geom_hline(yintercept = 0, color = "black", linewidth = 0.5) +
-  
-  # Axis Scaling
-  scale_x_continuous(
-    breaks = chr_offsets$MidPos, 
-    labels = chr_offsets$AxisLabel,
-    expand = c(0, 0)
-  ) +
-  scale_y_continuous(
-    labels = scales::comma,
-    expand = expansion(mult = c(0, 0.1))
-  ) +
-  
-  # Legend and Labels
-  scale_size_continuous(range = c(0.8, 8), name = "SNPs per Peak") +
-  labs(
-    title = "SNP-Impacted MafA Binding Sites (mm39)",
-    subtitle = "Y-axis: Peak Score | Size: SNP Density ",
-    x = "Chromosome",
-    y = "MafA Peak Score"
-  ) +
-  theme_minimal() +
-  theme(
-    panel.grid = element_blank(),
-    axis.text.x = element_text(size = 10, face = "bold"),
-    axis.line.y = element_line(color = "black"),
-    axis.ticks.y = element_line(color = "black"),
-    legend.position = "bottom"
-  )
-
-# 5. Output and Save
-print(p_impact_final)
-
-ggsave(
-  filename = file.path(BASE_DIR, "Manhattan_MafA_SNP_Outlined_Final.png"),
-  plot = p_impact_final,
-  width = 13, height = 6.5, dpi = 600, bg = "white"
-)
-
-
-###----------------------------------------------------
-# Vignette: Manhattan Plot (MafA Peaks Proximal to DEGs)
-###----------------------------------------------------
-
-# 1. Define "Proximal" Genomic Window
-PROXIMAL_WINDOW <- 200000 # 200Kb
-
-# 2. Use the existing 'degs' object created in Section 4
-# This avoids the "object 'genes' not found" error
-deg_gr <- GRanges(
-  seqnames = degs$Chr,
-  ranges   = IRanges(start = degs$LocalPos - PROXIMAL_WINDOW, 
-                     end   = degs$LocalPos + PROXIMAL_WINDOW)
-)
-
-# 3. Filter MafA Peaks (SNP-containing & Proximal to DEGs)
-# Using the mafa_gr created in the previous SNP vignette
-overlaps_deg <- findOverlaps(mafa_gr, deg_gr)
-proximal_indices <- unique(queryHits(overlaps_deg))
-
-# Subset mafa to only those that have SNPs AND are near a DEG
-mafa_proximal <- mafa[proximal_indices][SNP_Count > 0]
-
-# 4. Integrate with Manhattan Coordinates
-# We merge with our existing chr_offsets for the global X position
-mafa_proximal <- merge(mafa_proximal, chr_offsets[, .(Chr, StartPos)], by = "Chr")
-mafa_proximal[, GlobalPos := mm39_start + StartPos]
-
-message(paste("Success: Filtered down to", nrow(mafa_proximal), 
-              "MafA peaks with SNPs within 200kb of a DEG."))
-
-# 5. Generate the Manhattan Plot (Exact Layout Match)
-p_proximal_final <- ggplot() +
-  geom_rect(data = bg_rects, aes(xmin = xmin, xmax = xmax, ymin = -Inf, ymax = Inf), 
-            fill = "grey94", alpha = 1) +
-  
-  geom_point(data = mafa_proximal, 
-             aes(x = GlobalPos, y = `Peak Score`, size = SNP_Count), 
-             shape = 21,           
-             fill = "forestgreen", 
-             color = "black",      
-             stroke = 0.2,         
-             alpha = 0.6) +        
-  
-  geom_hline(yintercept = 0, color = "black", linewidth = 0.5) +
-  
-  scale_x_continuous(
-    breaks = chr_offsets$MidPos, 
-    labels = chr_offsets$AxisLabel,
-    expand = c(0, 0)
-  ) +
-  scale_y_continuous(
-    labels = scales::comma,
-    expand = expansion(mult = c(0, 0.1))
-  ) +
-  
-  scale_size_continuous(range = c(0.8, 8), name = "SNPs per Peak") +
-  labs(
-    title = "SNP-Impacted MafA Binding Sites Proximal to DEGs (+/- 200kb)",
-    subtitle = "Y-axis: Peak Score | Size: SNP Density",
-    x = "Chromosome",
-    y = "MafA Peak Score"
-  ) +
-  theme_minimal() +
-  theme(
-    panel.grid = element_blank(),
-    axis.text.x = element_text(size = 10, face = "bold"),
-    axis.line.y = element_line(color = "black"),
-    axis.ticks.y = element_line(color = "black"),
-    legend.position = "bottom"
-  )
-
-# 6. Output and Save
-print(p_proximal_final)
-
-ggsave(
-  filename = file.path(BASE_DIR, "Manhattan_MafA_SNP_Proximal_DEG.png"),
-  plot = p_proximal_final,
-  width = 13, height = 6.5, dpi = 600, bg = "white"
-)
-
-
-
-###----------------------------------------------------
-# Vignette: Manhattan Plot (Colored by DEG Direction)
-###----------------------------------------------------
-
-# 1. Map Each Proximal Peak to its Nearest DEG
-# We find the specific DEG closest to each peak to determine its "direction"
-mafa_prox_gr <- GRanges(
-  seqnames = mafa_proximal$Chr,
-  ranges   = IRanges(start = mafa_proximal$mm39_start, end = mafa_proximal$mm39_end)
-)
-
-degs_gr_points <- GRanges(
-  seqnames = degs$Chr,
-  ranges   = IRanges(start = degs$LocalPos, width = 1)
-)
-
-# Find the index of the nearest DEG for every peak in our filtered set
-nearest_deg_idx <- nearest(mafa_prox_gr, degs_gr_points)
-
-# 2. Attach DEG Metadata (Strain and Direction)
-# We use the sign of the Fold Change (FC) to determine UP vs DOWN
-mafa_proximal[, Associated_Strain := degs$Strain[nearest_deg_idx]]
-mafa_proximal[, Associated_FC := degs$FC[nearest_deg_idx]]
-mafa_proximal[, Direction := ifelse(Associated_FC > 0, "UP", "DOWN")]
-
-# Create a combined group for the color legend
-mafa_proximal[, Group := paste(Associated_Strain, Direction)]
-
-# 3. Define the Directional Color Palette
-# Consistent with your genome plot: Mixed = Red-ish, C57 = Blue-ish
-impact_colors <- c(
-  "Mixed UP"      = "#CC0000", # Deep Red
-  "Mixed DOWN"    = "#FF9999", # Light Red/Pink
-  "C57BL/6J UP"   = "#0000CC", # Deep Blue
-  "C57BL/6J DOWN" = "#9999FF"  # Light Blue/Cornflower
-)
-
-# 4. Generate the Plot (Exact Layout Match)
-p_direction_final <- ggplot() +
-  # Alternating background bands
-  geom_rect(data = bg_rects, aes(xmin = xmin, xmax = xmax, ymin = -Inf, ymax = Inf), 
-            fill = "grey94", alpha = 1) +
-  
-  # Points: Color fill by the combined Strain + Direction Group
-  geom_point(data = mafa_proximal, 
-             aes(x = GlobalPos, y = `Peak Score`, size = SNP_Count, fill = Group), 
-             shape = 21,           
-             color = "black",      
-             stroke = 0.2,         
-             alpha = 0.6) +        
-  
-  # Axis Lines
-  geom_hline(yintercept = 0, color = "black", linewidth = 0.5) +
-  
-  # Axis Scaling (Matching previous plot exactly)
-  scale_x_continuous(
-    breaks = chr_offsets$MidPos, 
-    labels = chr_offsets$AxisLabel,
-    expand = c(0, 0)
-  ) +
-  scale_y_continuous(
-    labels = scales::comma,
-    expand = expansion(mult = c(0, 0.1))
-  ) +
-  
-  # Scales: Manual colors and size
-  scale_fill_manual(values = impact_colors) +
-  scale_size_continuous(range = c(0.8, 8), name = "SNPs per Peak") +
-  
-  # Labels and Theme
-  labs(
-    title = "Functional Impact of SNP-Containing MafA Sites",
-    subtitle = "Y-axis: Peak Score | Color: Direction of Nearest DEG | Size: SNP Density",
-    x = "Chromosome",
-    y = "MafA Peak Score"
-  ) +
-  theme_minimal() +
-  theme(
-    panel.grid = element_blank(),
-    axis.text.x = element_text(size = 10, face = "bold"),
-    axis.line.y = element_line(color = "black"),
-    axis.ticks.y = element_line(color = "black"),
-    legend.position = "bottom",
-    legend.title = element_text(face = "bold")
-  ) +
-  # Make the legend bubbles large enough to see the colors clearly
-  guides(fill = guide_legend(override.aes = list(size = 4)))
-
-# 5. Output and Save
-print(p_direction_final)
-
-ggsave(
-  filename = file.path(BASE_DIR, "Manhattan_MafA_SNP_DEG_Direction_Final.png"),
-  plot = p_direction_final,
-  width = 13, height = 6.5, dpi = 600, bg = "white"
-)
-
-
-
-
-# 1. Define the global limit once for all plots
+# Define the global limit once for all plots
 TOTAL_GENOME_LENGTH <- max(CHR_INFO$EndOffset)
 
 # 2. Re-filter for Proximal Sites (1 or more DEGs within 200kb)
@@ -815,6 +482,9 @@ if(!"Offset" %in% names(mafa_prox_snps)) {
   mafa_prox_snps[, GlobalPos := mm39_start + Offset]
 }
 
+##--------------------------------------------------------------------
+# All mafa peaks
+##--------------------------------------------------------------------
 
 p_all <- ggplot() +
   # Background stripes
@@ -848,6 +518,10 @@ print(p_all)
 
 ggsave(file.path(BASE_DIR, "Manhattan_MafA_SNP_ALL_Fixed.png"), 
        plot = p_all, width = 13, height = 6.5, dpi = 600, bg = "white")
+
+##--------------------------------------------------------------------
+# Mafa peaks proximal to DEGs
+##--------------------------------------------------------------------
 
 
 p_prox <- ggplot() +
@@ -885,98 +559,6 @@ ggsave(file.path(BASE_DIR, "Manhattan_MafA_SNP_PROXIMAL_Fixed.png"),
        plot = p_prox, width = 13, height = 6.5, dpi = 600, bg = "white")
 
 
-
-###----------------------------------------------------
-# Vignette: Functional Manhattan (Standardized Design)
-###----------------------------------------------------
-library(ggnewscale)
-
-# 1. Map Data & Metadata
-# find the nearest DEG to each of your proximal peaks
-nearest_deg_idx <- nearest(mafa_prox_gr, deg_gr)
-
-mafa_prox_snps[, Strain := degs$Strain[nearest_deg_idx]]
-mafa_prox_snps[, FC := degs$FC[nearest_deg_idx]]
-mafa_prox_snps[, Direction := ifelse(FC > 0, "UP", "DOWN")]
-
-# 2. Setup Shared Aesthetics
-impact_shapes <- c("UP" = 24, "DOWN" = 25)
-strain_colors <- c("Mixed" = "#CC0000", "C57BL/6J" = "#0000CC")
-
-# 3. Build the Plot
-p_directional_final <- ggplot() +
-  # A. INFRASTRUCTURE: Pure white panel + Chromosome Stripes
-  geom_rect(aes(xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf), fill = "white") +
-  geom_rect(data = CHR_INFO, 
-            aes(xmin = Offset, xmax = EndOffset, ymin = -Inf, ymax = Inf, fill = Shade), 
-            alpha = 1, show.legend = FALSE) +
-  scale_fill_identity() + 
-  
-  # B. DATA: Functional Triangles (Using new scale for fill)
-  new_scale_fill() + 
-  geom_point(data = mafa_prox_snps, 
-             aes(x = GlobalPos, y = `Peak Score`, 
-                 fill = Strain, 
-                 shape = Direction, 
-                 size = SNP_Count), 
-             color = "black", 
-             stroke = 0.25, 
-             alpha = 0.6) + # Matching your 0.6 alpha from the previous plot       
-  
-  # C. HORIZONTAL BASELINE
-  geom_hline(yintercept = 0, color = "black", linewidth = 0.5) +
-  
-  # D. SCALES: Matching your previous size ranges
-  scale_fill_manual(values = strain_colors, name = "Strain Background") +
-  scale_shape_manual(values = impact_shapes, name = "DEG Direction") +
-  scale_size_continuous(range = c(0.8, 8), name = "SNPs per Peak") +
-  
-  # E. AXES: Identical Fixed X/Y scaling
-  scale_x_continuous(
-    limits = c(0, TOTAL_GENOME_LENGTH),
-    breaks = CHR_INFO$MidpointGlobal, 
-    labels = CHR_INFO$AxisLabel,
-    expand = c(0, 0)
-  ) +
-  scale_y_continuous(labels = scales::comma, expand = expansion(mult = c(0, 0.1))) +
-  
-  # F. FORMAL DESIGN & THEME (Standardized)
-  labs(
-    title = "Functional Impact of SNP-Containing MafA Sites",
-    subtitle = "Triangles represent peaks within 200kb of a DEG | Up (▲) = Higher in strain | Down (▼) = Lower in strain",
-    x = "Chromosome", 
-    y = "MafA Peak Score"
-  ) +
-  theme_minimal() + 
-  theme(
-    panel.grid = element_blank(), 
-    # Clear panel background to ensure stripes pop
-    panel.background = element_blank(),
-    plot.background = element_blank(),
-    # Standardized axis text and lines
-    axis.text.x = element_text(size = 10, face = "bold"),
-    axis.line.y = element_line(color = "black"), 
-    axis.ticks.y = element_line(color = "black"),
-    # Legend standardization
-    legend.position = "bottom",
-    legend.key = element_blank(),
-    legend.box = "horizontal"
-  ) +
-  # Ensure triangles look good in the legend
-  guides(
-    fill = guide_legend(override.aes = list(shape = 21, size = 4, alpha = 0.8)),
-    shape = guide_legend(override.aes = list(size = 4)),
-    size = guide_legend(override.aes = list(shape = 21, fill = "grey80"))
-  )
-
-# 4. Print and Save
-print(p_directional_final)
-
-ggsave(
-  filename = file.path(BASE_DIR, "Manhattan_MafA_Directional_Standardized.png"), 
-  plot = p_directional_final,
-  width = 13, height = 6.5, dpi = 600, bg = "white"
-)
 
 
 
@@ -1073,6 +655,34 @@ ggsave(
   plot = p_directional_final,
   width = 13, height = 6.5, dpi = 600, bg = "white"
 )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
