@@ -1,0 +1,373 @@
+---
+title: "QTL mapping for all traits in DO project" 
+output: html_notebook
+---
+
+# Install libraries:
+
+```{r}
+
+library(qtl)
+library(gplots)
+library(ggplot2)
+library(readxl)
+library(RColorBrewer)
+library(qtl2)
+library(qtl2convert)
+
+library(tidyverse, warn.conflicts = FALSE) # install.packages("tidyverse", dependencies = T)
+library(stringr) # install.packages("stringr", dependencies = T)
+library(qtl2) # install.packages("qtl2", dependencies = T)
+library(ensimplR) # remotes::install_github("churchill-lab/ensimplR", dependencies = T)
+library(ppcor) # install.packages("ppcor", dependencies = T)
+
+
+
+```
+
+
+# Load RDS files from mapping
+
+```{r}
+
+pheno <- read.csv("C:\\Users\\mkeller3\\Desktop\\Kahn FAHFA analysis Jan2026\\rz_20221206_DO_Batch_1to9_MPK_ComBat_Corrected_badmiceremoved.csv")
+
+
+pheno=as.data.frame(pheno)
+colnames(pheno)[1]="mouse"
+rownames(pheno)=pheno$mouse
+
+## Mapping files updated by Kelly
+genoprobs=readRDS("W:\\General\\Projects2\\Holland500\\mapping_files\\Grcm39\\alleleprobs_grcm39_islet_clean.rds")
+map=readRDS("W:\\General\\Projects2\\Holland500\\mapping_files\\Grcm39\\cleaned_DO500_pmap_grcm39.rds")
+K <- readRDS("W:\\General\\Projects2\\Holland500\\mapping_files\\Grcm39\\k_loco_DO_islet_cleaned_grcm39.rds")
+markers <- read_csv("W:\\General\\Projects2\\Holland500\\mapping_files\\Grcm39\\marker_annotations_DO500_grcm39.csv")
+
+
+
+query_func = create_variant_query_func("W:\\General\\mapping_files_for_mark\\cc_variants_grcm39.sqlite")
+query_genes = create_gene_query_func(dbfile = "W:\\General\\mapping_files_for_mark\\mouse_genes_grcm39.sqlite")
+
+
+
+```
+
+
+
+Load RDS files containing scans
+
+```{r}
+
+QTL_scan_add <- readRDS("C:\\Users\\mkeller3\\Desktop\\Kahn FAHFA analysis Jan2026\\QTL_FAHFA_DO_adipose_additive_Jan2026.rds")
+QTL_scan_sex <- readRDS("C:\\Users\\mkeller3\\Desktop\\Kahn FAHFA analysis Jan2026\\QTL_FAHFA_DO_adipose_sexint_Jan2026.rds")
+
+```
+
+
+
+# Generate list of trait names for lipids
+
+```{r}
+
+
+variables <- names(pheno)[c(6:ncol(pheno))]
+
+
+```
+
+
+# Make sure covars are reclassifed as factors
+
+```{r}
+
+pheno$Diet <- as.factor(pheno$diet_days)
+pheno$Wave <- as.factor(pheno$DOwave)
+pheno$Sex <- as.factor(pheno$Sex)
+pheno$Batch <- as.factor(pheno$Batch)
+
+
+addcovar1 = model.matrix(~Sex+Diet+Wave+Batch, data = pheno)[,-1]
+
+addcovar_interactive1 = t(t(model.matrix(~Sex, data = pheno)[,-1]))
+
+
+
+```
+
+
+
+Find peak locations from saved RDS file for all scans
+```{r}
+
+thr=7
+
+addcovar1_peaks1 <- find_peaks(scan1_output = QTL_scan_add, map = map, threshold = thr, prob=0.95)
+
+print(addcovar1_peaks1)
+
+
+
+```
+
+
+Modified Get allele effects function
+```{r}
+
+get_alleleEffects <- function(peaks, markers, geno, kinship, pheno, covar){
+ 
+  peaks <- merge(peaks, markers[,c('marker','chr','pos')], by = c('chr','pos'), all.x = TRUE)
+ 
+  peaks[,LETTERS[1:8]] <- 0
+  for(i in 1:nrow(peaks)){
+    gp <- geno[,peaks$chr[i]]
+    gp[[1]] <- gp[[1]][,,peaks$marker[i], drop = FALSE]
+   
+    peaks[i, LETTERS[1:8]] <- scan1blup(genoprobs = gp,
+                                       kinship   = K[[peaks$chr[i]]],
+                                        pheno     = pheno[,peaks$lodcolumn[i], drop = FALSE],
+                                        addcovar  = covar)[1, LETTERS[1:8]]
+  }
+ 
+  return(peaks)
+} 
+
+
+```
+
+
+Combine allele effects to peaks for addtive scan
+```{r}
+
+addcovar1_peaks2 <- get_alleleEffects(peaks = addcovar1_peaks1, markers = markers, geno = genoprobs, kinship = K, pheno = pheno, covar = addcovar1)
+
+write.csv(addcovar1_peaks2, file = "C:\\Users\\mkeller3\\Desktop\\Kahn FAHFA analysis Jan2026\\Additive_QTL_alleles_FAHFA_DO_adipose.csv")
+
+
+```
+
+
+
+
+
+
+
+Plot results from additive and interactive scans
+
+```{r fig.height=5,fig.width=15}
+
+trait <- "FL32_0_PAHPA_peak_4"
+
+ylim=c(0,15)
+chr = c("X")
+xlim = c(5,20)
+
+plot_scan1(x = QTL_scan_add[,trait], ylim=ylim, map = map, col="black", main = trait)
+plot_scan1(x = QTL_scan_sex[,trait], ylim=ylim, map = map, col="darkred", add = TRUE)
+
+
+plot_scan1(x = QTL_scan_add[,trait], chr = chr, xlim=xlim, ylim=ylim, map = map, col="black", main = trait)
+plot_scan1(x = QTL_scan_sex[,trait], chr = chr, xlim=xlim, ylim=ylim, map = map, col="darkred", add = TRUE)
+
+
+```
+
+
+Plot results from additive and interactive scans
+
+```{r fig.height=8,fig.width=5}
+
+trait <- "FL34_1_POHSA_peak_6"
+
+ylim=c(0,13)
+chr = c("X")
+xlim = c(5,30)
+
+plot_scan1(x = QTL_scan_add[,trait], chr = chr, xlim=xlim, ylim=ylim, map = map, col="black", main = trait)
+plot_scan1(x = QTL_scan_sex[,trait], chr = chr, xlim=xlim, ylim=ylim, map = map, col="darkred", add = TRUE)
+
+
+```
+
+
+Plot results from additive and interactive scans
+
+```{r fig.height=5,fig.width=15}
+
+trait1 <- "FL36_1_SAHOA_peak_7"
+trait2 <- "FL36_1_SAHOA_peak_6"
+
+ylim=c(0,22)
+chr = c(11)
+xlim = c(5,20)
+
+plot_scan1(x = QTL_scan_add[,trait1], ylim=ylim, map = map, col="black", main = trait)
+plot_scan1(x = QTL_scan_sex[,trait1], ylim=ylim, map = map, col="darkred", add = TRUE)
+
+plot_scan1(x = QTL_scan_add[,trait2], ylim=ylim, map = map, col="black", main = trait)
+plot_scan1(x = QTL_scan_sex[,trait2], ylim=ylim, map = map, col="darkred", add = TRUE)
+
+
+
+```
+
+
+
+
+
+Generate SNP association plot at specific peak
+```{r fig.height=8,fig.width=15}
+
+chr = "X"
+start = 5
+end = 11
+
+assoc = scan1snps(genoprobs = genoprobs[,chr],
+                  map = map,
+                  pheno = pheno[,trait,drop = FALSE],
+                  kinship = K,
+                  addcovar = addcovar1,
+                  intcovar = addcovar_interactive1, #sex
+                  query_func = query_func,
+                  chr = chr,
+                  start = start,
+                  end = end,
+                  keep_all_snps = TRUE)
+
+genes = query_genes(chr, start, end)
+genes=genes[genes$stop-genes$start<1,]
+
+plot_snpasso(assoc$lod,
+             assoc$snpinfo,
+             drop_hilit=1.5,
+             main = trait,
+             genes = genes,
+             sdp_panel=TRUE,
+             cex=1,
+             color = "black",
+             show_all_snps=TRUE)
+
+
+```
+
+
+
+# Generate a table containing SNPs at a QTL
+```{r}
+
+
+top <- top_snps(assoc$lod,
+                assoc$snpinfo,
+                lodcolumn = 1,
+                chr = NULL,
+                drop = 1.5,
+                show_all_snps = TRUE)
+
+write.csv(top, file = "C:/Users/mkeller3/Desktop/top_snps_FAHFA_QTLChr8.csv")
+
+
+
+```
+
+
+
+Create LOD difference profiles: sex_int - additive
+
+```{r}
+
+qtl_diff <- list()
+
+qtl_peak <- as.data.frame(matrix(ncol = 7, nrow = 0)) 
+colnames(qtl_peak)<- c("lodindex", "lodcolumn", "chr", "pos", "lod", "ci_lo", "ci_hi")
+
+for (trait in variables) {
+    
+    # get peaks
+    lod_diff <- QTL_scan_sex[, trait, drop=F] - QTL_scan_add[, trait, drop=F]
+    peak_all <- find_peaks(lod_diff[, trait, drop=F], map, threshold = 5, prob=0.95)
+    qtl_diff[[trait]]<-lod_diff
+    
+    if (nrow(peak_all) > 0 ) {
+        qtl_peak <<- rbind(qtl_peak, peak_all)
+    }
+    
+}
+
+qtl_diff_all <- do.call("cbind", qtl_diff)
+
+write.csv(qtl_peak, file = "C:/Users/mkeller3/Desktop/FAHFA_QTL_peak_LOD_difference_sex.csv")
+
+saveRDS(qtl_diff_all, file = "C:/Users/mkeller3/Desktop/FAHFA_QTL_peak_LOD_difference_sex.rds")
+
+
+```
+
+
+
+Find peaks for all interactive scans
+
+```{r}
+
+
+add <- find_peaks(scan1_output = QTL_scan_add, map = map, threshold = 7, prob=0.95)
+print(add)
+
+sex <- find_peaks(scan1_output = QTL_scan_sex, map = map, threshold = 9, prob=0.95)
+print(sex)
+
+
+```
+
+
+
+
+
+Make coeficient plots
+```{r}
+chr = 8
+coef8 = scan1blup(genoprobs = genoprobs[,chr], pheno = pheno[,"FL36_1_SAHOA_peak_7", drop = FALSE], kinship = K[[chr]], addcovar = addcovar1)
+
+
+```
+
+
+
+
+
+Plot coeficients
+```{r fig.height=6,fig.width=6}
+
+plot_coefCC(x = coef8, ylim=c(-1.25,1.25), xlim=c(0,50), legend = "topright", map = map, main = "FL36_1_SAHOA_peak_7")
+
+
+```
+
+
+
+
+
+Combine allele effects to peaks
+```{r}
+
+addcovar1_peaks2 <- get_alleleEffects(peaks = addcovar1_peaks1, markers = markers, geno = genoprobs, kinship = K, pheno = pheno, covar = addcovar1)
+
+write.csv(addcovar1_peaks1, file = "C:/Users/mkeller3/Desktop/Liver_lipid_QTL_sex.csv")
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,171 @@
+---
+title: "QTL mapping for all traits in DO project" 
+output: html_notebook
+---
+
+Install libraries:
+
+```{r}
+
+
+library(ggplot2)
+library(readxl)
+library(RColorBrewer)
+library(qtl2)
+library(qtl2convert)
+
+library(tidyverse, warn.conflicts = FALSE) # install.packages("tidyverse", dependencies = T)
+library(ensimplR) # remotes::install_github("churchill-lab/ensimplR", dependencies = T)
+library(ppcor) # install.packages("ppcor", dependencies = T)
+library(data.table)
+
+
+```
+
+
+
+# Establish working directories
+
+```{r}
+
+dir3 <- file.path("W:\\General\\Projects2\\Holland500\\mapping_files\\Grcm39")
+dir4 <- file.path("C:\\Users\\mkeller3\\Desktop")
+
+
+```
+
+
+
+Load in data
+
+```{r}
+
+pheno <- read.csv(file = file.path(dir4, "rz_20221206_DO_Batch_1to9_MPK_ComBat_Corrected.csv"))
+pheno=as.data.frame(pheno)
+
+
+genoprobs=readRDS(file = file.path(dir3, "alleleprobs_grcm39_islet_clean.rds"))
+map=readRDS(file = file.path(dir3, "cleaned_DO500_pmap_grcm39.rds"))
+K <- readRDS(file = file.path(dir3, "k_loco_DO_islet_cleaned_grcm39.rds"))
+
+colnames(pheno)[1]="mouse"
+rownames(pheno)=pheno$mouse
+
+```
+
+
+
+Make sure covars are reclassifed as factors; will map with sex, DOwave and batch as covariates
+
+```{r}
+
+pheno$DOwave <- as.factor(pheno$DOwave)
+pheno$Sex <- as.factor(pheno$Sex)
+pheno$Batch <- as.factor(pheno$Batch)
+pheno$diet_days <- as.factor(pheno$diet_days)
+
+addcovar1 = model.matrix(~Sex+DOwave+Batch+diet_days, data = pheno)[,-1]
+
+addcovar_interactive = t(t(model.matrix(~Sex, data = pheno)[,-1]))
+
+
+```
+
+
+Assign variables
+
+```{r}
+
+variables <- names(pheno)[c(6:ncol(pheno))]
+
+
+```
+
+
+
+Performing genome scans for lipids
+```{r}
+
+datalistadd = list()
+qtl.listadd = list()
+
+
+for (id in 1:length(variables)) {
+
+  
+  print(variables[id])
+  
+  testing_data <- as.data.frame(pheno[variables[id]])
+  rownames(testing_data) <- pheno$mouse
+  
+  qtl = scan1(genoprobs = genoprobs,
+              pheno = testing_data,
+              kinship = K,
+              cores = 10,
+              addcovar = addcovar1) # all coavars addditive
+
+      
+    LOD_Scores <- find_peaks(qtl, map, threshold = 7)
+
+    datalistadd[[variables[id]]] <- LOD_Scores
+    
+    qtl.listadd[[variables[id]]] <- qtl
+  
+}
+
+
+LOD_Scores_add <- do.call(bind_rows, datalistadd)
+
+qtl.listadd_all <- do.call("cbind", qtl.listadd)
+
+write.csv(LOD_Scores_add, file = file.path(dir4, "QTL_FAHFA_DO_adipose_additive_Jan2026_v2.csv"))
+saveRDS(qtl.listadd_all, file = file.path(dir4, "QTL_FAHFA_DO_adipose_additive_Jan2026_v2.rds"))
+
+
+```
+
+
+
+Performing genome scans for lipids
+```{r}
+
+datalistsex = list()
+qtl.listsex = list()
+
+
+for (id in 1:length(variables)) {
+
+  
+  print(variables[id])
+  
+  testing_data <- as.data.frame(pheno[variables[id]])
+  rownames(testing_data) <- pheno$mouse
+  
+  qtl = scan1(genoprobs = genoprobs,
+              pheno = testing_data,
+              kinship = K,
+              cores = 10,
+              addcovar = addcovar1,
+              intcovar = addcovar_interactive) # sex interactive covar
+
+      
+    LOD_Scores <- find_peaks(qtl, map, threshold = 9)
+
+    datalistsex[[variables[id]]] <- LOD_Scores
+    
+    qtl.listsex[[variables[id]]] <- qtl
+  
+}
+
+
+LOD_Scores_sex <- do.call(bind_rows, datalistsex)
+
+qtl.listsex_all <- do.call("cbind", qtl.listsex)
+
+write.csv(LOD_Scores_sex, file = file.path(dir4, "QTL_FAHFA_DO_adipose_sexint_Jan2026_v2.csv"))
+saveRDS(qtl.listsex_all, file = file.path(dir4, "QTL_FAHFA_DO_adipose_sexint_Jan2026_v2.rds"))
+
+
+```
+
+
