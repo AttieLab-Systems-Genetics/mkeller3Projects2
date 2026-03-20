@@ -4,3 +4,8 @@
 .httr-oauth
 .DS_Store
 .quarto
+.Rhistory
+~$*
+*.pdf
+*.docx
+*v[0-9].R
