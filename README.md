@@ -2,7 +2,7 @@
 
 This folder contains a collection of R scripts and RMarkdown files for processing, analyzing, and visualizing multi-omic data (lipids, metabolites, RNA) in Diversity Outbred (DO) mice. The scripts are organized into functional pipelines below.
 
-## How I created this file
+## How I created this file and repo
 
 This repo mirrors files on the [ResearchDrive](https://it.wisc.edu/services/researchdrive/)
 in folder `mkeller3/General/Projects2/R scripts`.
