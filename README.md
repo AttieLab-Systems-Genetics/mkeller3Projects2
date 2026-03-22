@@ -54,7 +54,7 @@ Tools for mapping quantitative trait loci (QTL) and identifying enrichment hotsp
 Core scripts for Weighted Gene Co-expression Network Analysis.
 
 - `Script to run modified WGCNA modules.R`: A robust, modified version of the WGCNA pipeline for identifying modules in metabolomic or transcriptomic data.
-- `module_gsea_enrichment.R` & `module_gsea_enrichment_v2.R`: Tools for functional enrichment and GSEA on identified network modules.
+- `module_gsea_enrichment.R`: Tools for functional enrichment and GSEA on identified network modules.
 - `corrplot for ME ME trait correlation and pvalues.R`: Post-WGCNA analysis to correlate Module Eigengenes (MEs) with clinical traits.
 - `corrplot for trait trait correlations with Pval and ready input file for Cytoscape network construction.R`: Generates correlation networks and prepares export files for Cytoscape.
 
@@ -78,5 +78,6 @@ Specialized scripts for generating high-quality analysis plots.
 
 ### 6. Utilities & Development
 
-- `prototype_running_new_fxn.R` (v1, v2, v3): Incremental prototypes for testing new analysis functions.
+- `prototype_running_new_fxn.R`: Incremental prototypes for testing new analysis functions.
+- `Shiny app prototype for Mafa SNP DEG analysis.R`: Integrated genomic explorer for MafA SNPs and DEGs, featuring Manhattan plots and locus-specific schematics.
 - `source_data_loading_and_functionset_v2.R`: Shared utility functions used across multiple pipelines.
